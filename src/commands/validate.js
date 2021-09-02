@@ -85,19 +85,21 @@ class ValidateCommand extends Command {
 
   static flags = {
     help: flags.help({ char: "h" }),
-    recurisve: flags.boolean({ char: "r" }),
+    recursive: flags.boolean({ char: "r" }),
   };
 
   static args = [{ name: "dir" }];
 
-  async getFiles(dir, recurisve = false) {
+  async getFiles(dir, recursive = false, level = 0) {
     const files = [];
     const items = await readdir(dir, { withFileTypes: true });
     for (const item of items) {
-      if (item.isDirectory() && recurisve) {
-        files.push(...(await this.getFiles(`${dir}${item.name}/`)));
+      if (item.isDirectory() && recursive) {
+        files.push(
+          ...(await this.getFiles(`${dir}${item.name}/`, true, level++))
+        );
       } else if (item.name.endsWith(".yaml")) {
-        files.push(`${dir}${item.name}`);
+        files.push(`${level > 0 ? dir : null}${item.name}`);
       }
     }
     return files;
@@ -136,7 +138,7 @@ class ValidateCommand extends Command {
   async run() {
     const { args, flags } = this.parse(ValidateCommand);
 
-    const files = await this.getFiles(args.dir, flags.recurisve);
+    const files = await this.getFiles(args.dir, flags.recursive);
     for (const file of files) {
       const result = await this.validate(file);
       if (!result.success) {
