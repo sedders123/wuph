@@ -8,32 +8,15 @@ const getKeyByValue = (object, value) => {
   return Object.keys(object).find((key) => object[key] === value);
 };
 
-const gcd = (a, b) => {
-  if (b > a) {
-    temp = a;
-    a = b;
-    b = temp;
-  }
-  while (b != 0) {
-    m = a % b;
-    a = b;
-    b = m;
-  }
-  return a;
-};
-
-const ratio = (x, y) => {
-  c = gcd(x, y);
-  return `${x / c},${y / c}`;
-};
-
-const VALID_INSTAGRAM_IMAGE_RATIOS = ["1,1", "4:5", "1.91:1"];
-
 const Providers = {
   Twitter: "twitter",
   Facebook: "facebook",
   Instagram: "instagram",
+  LinkedIn: "linkedin",
 };
+
+const INSTAGRAM_MIN_WIDTH = 400;
+const INSTAGRAM_MIN_HEIGHT = 500;
 
 const Validators = {
   [Providers.Twitter]: async (file) => {
@@ -44,6 +27,7 @@ const Validators = {
     };
   },
   [Providers.Facebook]: async () => ({ success: true, errors: [] }),
+  [Providers.LinkedIn]: async () => ({ success: true, errors: [] }),
   [Providers.Instagram]: async (file) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = file[`${Providers.Instagram}_text`].match(urlRegex);
@@ -51,17 +35,20 @@ const Validators = {
     if (!file[`${Providers.Instagram}_media`]) return !urls;
 
     let mediaValid = true;
+    let mediaRatio = null;
     for (let image of file[`${Providers.Instagram}_media`]) {
       const media = await probe(image);
-      const media_ratio = ratio(media.height, media.width);
       mediaValid =
-        mediaValid && VALID_INSTAGRAM_IMAGE_RATIOS.includes(media_ratio);
+        media.height > INSTAGRAM_MIN_HEIGHT &&
+        media.width > INSTAGRAM_MIN_WIDTH;
     }
 
     return {
       success: mediaValid && !urls,
       errors: [
-        mediaValid ? null : "Image is wrong ratio for Instagram",
+        mediaValid
+          ? null
+          : `Image is too small for Instagram. Instagram has a minimum size of 400px x 500px`,
         !urls ? null : "Instagram text contains a URL",
       ],
     };
