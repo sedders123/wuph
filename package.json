@@ -1,0 +1,56 @@
+{
+  "name": "wuph",
+  "description": "Social media management tool",
+  "version": "0.1.0",
+  "author": "James Seden Smith",
+  "bin": {
+    "wuph": "./bin/run"
+  },
+  "bugs": "https://github.com/sedders123/wuph/issues",
+  "dependencies": {
+    "@oclif/command": "^1",
+    "@oclif/config": "^1",
+    "@oclif/plugin-help": "^3",
+    "js-yaml": "^4.1.0",
+    "probe-image-size": "^7.2.1",
+    "twitter-text": "^3.1.0"
+  },
+  "devDependencies": {
+    "@oclif/dev-cli": "^1",
+    "@oclif/test": "^1",
+    "chai": "^4",
+    "globby": "^10",
+    "mocha": "^5",
+    "nyc": "^14",
+    "rimraf": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "files": [
+    "/bin",
+    "/npm-shrinkwrap.json",
+    "/oclif.manifest.json",
+    "/src"
+  ],
+  "homepage": "https://github.com/sedders123/wuph",
+  "keywords": [
+    "oclif"
+  ],
+  "license": "MIT",
+  "main": "src/index.js",
+  "oclif": {
+    "commands": "./src/commands",
+    "bin": "wuph",
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
+  },
+  "repository": "sedders123/wuph",
+  "scripts": {
+    "postpack": "rimraf oclif.manifest.json",
+    "prepack": "oclif-dev manifest && oclif-dev readme",
+    "test": "nyc mocha --forbid-only \"test/**/*.test.js\"",
+    "version": "oclif-dev readme && git add README.md"
+  }
+}
