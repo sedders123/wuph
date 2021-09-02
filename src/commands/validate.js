@@ -38,7 +38,10 @@ const Providers = {
 const Validators = {
   [Providers.Twitter]: async (file) => {
     const validationResult = parseTweet(file[`${Providers.Twitter}_text`]);
-    return { success: validationResult.valid, errors: [] };
+    return {
+      success: validationResult.valid,
+      errors: ["Text is too long for Twitter"],
+    };
   },
   [Providers.Facebook]: async () => ({ success: true, errors: [] }),
   [Providers.Instagram]: async (file) => {
@@ -55,7 +58,13 @@ const Validators = {
         mediaValid && VALID_INSTAGRAM_IMAGE_RATIOS.includes(media_ratio);
     }
 
-    return { success: mediaValid && !urls, errors: [] };
+    return {
+      success: mediaValid && !urls,
+      errors: [
+        mediaValid ? null : "Image is wrong ratio for Instagram",
+        !urls ? null : "Instagram text contains a URL",
+      ],
+    };
   },
 };
 
@@ -92,14 +101,20 @@ class ValidateCommand extends Command {
 
   async getFiles(dir, recursive = false, level = 0) {
     const files = [];
+
     const items = await readdir(dir, { withFileTypes: true });
     for (const item of items) {
+      if (item.name.startsWith(".")) continue;
       if (item.isDirectory() && recursive) {
         files.push(
-          ...(await this.getFiles(`${dir}${item.name}/`, true, level++))
+          ...(await this.getFiles(
+            `${level > 0 ? dir : ""}${item.name}/`,
+            true,
+            level + 1
+          ))
         );
       } else if (item.name.endsWith(".yaml")) {
-        files.push(`${level > 0 ? dir : null}${item.name}`);
+        files.push(`${level > 0 ? dir : ""}${item.name}`);
       }
     }
     return files;
@@ -143,6 +158,9 @@ class ValidateCommand extends Command {
       const result = await this.validate(file);
       if (!result.success) {
         this.log(`${file} is invalid`);
+        for (let error of result.errors) {
+          if (error) this.log(` - ${error}`);
+        }
         this.exit(1);
       }
     }
