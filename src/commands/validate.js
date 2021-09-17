@@ -3,6 +3,7 @@ const { readdir, readFile } = require("fs").promises;
 const yaml = require("js-yaml");
 const { parseTweet } = require("twitter-text");
 const probe = require("probe-image-size");
+const path = require("path");
 
 const getKeyByValue = (object, value) => {
   return Object.keys(object).find((key) => object[key] === value);
@@ -23,7 +24,7 @@ const Validators = {
     const validationResult = parseTweet(file[`${Providers.Twitter}_text`]);
     return {
       success: validationResult.valid,
-      errors: ["Text is too long for Twitter"],
+      errors: [!validationResult.valid ? "Text is too long for Twitter" : null],
     };
   },
   [Providers.Facebook]: async () => ({ success: true, errors: [] }),
@@ -32,10 +33,14 @@ const Validators = {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = file[`${Providers.Instagram}_text`].match(urlRegex);
 
-    if (!file[`${Providers.Instagram}_media`]) return !urls;
+    if (!file[`${Providers.Instagram}_media`]) {
+      return {
+        success: !urls,
+        errors: [!urls ? null : "Instagram text contains a URL"],
+      };
+    }
 
     let mediaValid = true;
-    let mediaRatio = null;
     for (let image of file[`${Providers.Instagram}_media`]) {
       const media = await probe(image);
       mediaValid =
@@ -94,14 +99,10 @@ class ValidateCommand extends Command {
       if (item.name.startsWith(".")) continue;
       if (item.isDirectory() && recursive) {
         files.push(
-          ...(await this.getFiles(
-            `${level > 0 ? dir : ""}${item.name}/`,
-            true,
-            level + 1
-          ))
+          ...(await this.getFiles(path.join(dir, item.name), true, level + 1))
         );
       } else if (item.name.endsWith(".yaml")) {
-        files.push(`${level > 0 ? dir : ""}${item.name}`);
+        files.push(path.join(dir, item.name));
       }
     }
     return files;
@@ -122,9 +123,10 @@ class ValidateCommand extends Command {
       let valid = true;
       let errors = [];
       for (let provider of post.providers) {
-        var providerResult = await Validators[
+        const providerResult = await Validators[
           Providers[getKeyByValue(Providers, provider)]
         ](post);
+
         this.debug(`${provider} is ${providerResult}`);
         valid = valid && providerResult.success;
         errors = errors.concat(providerResult.errors);
@@ -133,23 +135,39 @@ class ValidateCommand extends Command {
       return { success: valid, errors };
     } catch (e) {
       this.log(e);
-      return false;
+      return { success: false, errors: ["Invalid file"] };
+    }
+  }
+
+  outputErrors(file, errors) {
+    const runningInGitHub =
+      process.env.CI != null && process.env.GITHUB_ACTION != null;
+    if (runningInGitHub) {
+      for (let error of errors) {
+        if (error) this.log(`::error file=${file}::${error}`);
+      }
+    }
+    for (let error of errors) {
+      if (error) this.log(` - ${error}`);
     }
   }
 
   async run() {
     const { args, flags } = this.parse(ValidateCommand);
 
-    const files = await this.getFiles(args.dir, flags.recursive);
+    const absPath = path.resolve(args.dir);
+    const files = await this.getFiles(absPath, flags.recursive);
+    let invalidFiles = false;
     for (const file of files) {
       const result = await this.validate(file);
       if (!result.success) {
         this.log(`${file} is invalid`);
-        for (let error of result.errors) {
-          if (error) this.log(` - ${error}`);
-        }
-        this.exit(1);
+        this.outputErrors(file, result.errors);
+        invalidFiles = true;
       }
+    }
+    if (invalidFiles) {
+      this.exit(1);
     }
   }
 }
