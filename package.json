@@ -1,7 +1,7 @@
 {
   "name": "wuph",
   "description": "Social media management tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "James Seden Smith",
   "bin": {
     "wuph": "./bin/run"
